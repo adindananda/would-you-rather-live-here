@@ -7,7 +7,6 @@ import pandas as pd
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
-from rich.prompt import IntPrompt
 from rich.text import Text
 from rich import box
 from rich.rule import Rule
@@ -16,52 +15,55 @@ console = Console()
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  DATA
-#  Sources: World Happiness Report 2023 · Numbeo 2024 · Freedom House 2024
+#  Sources: Numbeo 2024 · GFSI 2024 · various tech/travel indices
+#
+#  nature       = proximity to nature: beaches, mountains, parks (0–100)
+#  connectivity = great cities reachable in a weekend (0–100)
+#  tech         = tech industry & job market strength (0–100)
+#  hub          = global hub: airport, international status (0–100)
+#  tz_diff      = hours difference from WIB / UTC+7 (Jakarta) — lower = closer
+#  safety       = Numbeo personal safety index (0–100)
+#  cost         = Numbeo cost-of-living index (NYC ≈ 100; lower = cheaper)
 # ─────────────────────────────────────────────────────────────────────────────
 
 CITIES = [
-    # happiness  = WHR 2023 score (0–10)
-    # cost       = Numbeo cost-of-living index (NYC ≈ 100; lower = cheaper)
-    # freedom    = Freedom House 2024 (0–100; higher = more free)
-    # safety     = Numbeo safety index (0–100)
-    # qol        = Numbeo quality-of-life composite (higher = better)
-    # internet   = average broadband speed in Mbps
-    {"city": "Vienna",        "country": "Austria",      "flag": "🇦🇹", "happiness": 7.3,  "cost": 71,  "freedom": 95,  "safety": 79, "qol": 196, "internet": 86},
-    {"city": "Copenhagen",    "country": "Denmark",      "flag": "🇩🇰", "happiness": 7.6,  "cost": 89,  "freedom": 97,  "safety": 74, "qol": 186, "internet": 165},
-    {"city": "Stockholm",     "country": "Sweden",       "flag": "🇸🇪", "happiness": 7.4,  "cost": 75,  "freedom": 97,  "safety": 72, "qol": 179, "internet": 147},
-    {"city": "Helsinki",      "country": "Finland",      "flag": "🇫🇮", "happiness": 7.8,  "cost": 78,  "freedom": 100, "safety": 78, "qol": 185, "internet": 112},
-    {"city": "Amsterdam",     "country": "Netherlands",  "flag": "🇳🇱", "happiness": 7.4,  "cost": 79,  "freedom": 95,  "safety": 61, "qol": 180, "internet": 135},
-    {"city": "Berlin",        "country": "Germany",      "flag": "🇩🇪", "happiness": 6.9,  "cost": 64,  "freedom": 95,  "safety": 63, "qol": 169, "internet": 91},
-    {"city": "Lisbon",        "country": "Portugal",     "flag": "🇵🇹", "happiness": 6.0,  "cost": 53,  "freedom": 90,  "safety": 64, "qol": 163, "internet": 126},
-    {"city": "Barcelona",     "country": "Spain",        "flag": "🇪🇸", "happiness": 6.5,  "cost": 58,  "freedom": 88,  "safety": 59, "qol": 161, "internet": 158},
-    {"city": "London",        "country": "UK",           "flag": "🇬🇧", "happiness": 6.8,  "cost": 91,  "freedom": 93,  "safety": 47, "qol": 155, "internet": 99},
-    {"city": "Paris",         "country": "France",       "flag": "🇫🇷", "happiness": 6.7,  "cost": 79,  "freedom": 90,  "safety": 48, "qol": 152, "internet": 140},
-    {"city": "Toronto",       "country": "Canada",       "flag": "🇨🇦", "happiness": 7.0,  "cost": 72,  "freedom": 97,  "safety": 64, "qol": 175, "internet": 115},
-    {"city": "Vancouver",     "country": "Canada",       "flag": "🇨🇦", "happiness": 7.0,  "cost": 76,  "freedom": 97,  "safety": 59, "qol": 170, "internet": 115},
-    {"city": "New York",      "country": "USA",          "flag": "🇺🇸", "happiness": 6.9,  "cost": 100, "freedom": 83,  "safety": 44, "qol": 148, "internet": 125},
-    {"city": "Austin",        "country": "USA",          "flag": "🇺🇸", "happiness": 6.9,  "cost": 76,  "freedom": 83,  "safety": 52, "qol": 170, "internet": 120},
-    {"city": "Seattle",       "country": "USA",          "flag": "🇺🇸", "happiness": 6.9,  "cost": 84,  "freedom": 83,  "safety": 45, "qol": 168, "internet": 120},
-    {"city": "Sydney",        "country": "Australia",    "flag": "🇦🇺", "happiness": 7.1,  "cost": 78,  "freedom": 97,  "safety": 68, "qol": 179, "internet": 70},
-    {"city": "Melbourne",     "country": "Australia",    "flag": "🇦🇺", "happiness": 7.1,  "cost": 74,  "freedom": 97,  "safety": 67, "qol": 177, "internet": 70},
-    {"city": "Tokyo",         "country": "Japan",        "flag": "🇯🇵", "happiness": 6.1,  "cost": 79,  "freedom": 96,  "safety": 83, "qol": 175, "internet": 118},
-    {"city": "Seoul",         "country": "S. Korea",     "flag": "🇰🇷", "happiness": 6.0,  "cost": 65,  "freedom": 83,  "safety": 70, "qol": 166, "internet": 241},
-    {"city": "Singapore",     "country": "Singapore",    "flag": "🇸🇬", "happiness": 6.6,  "cost": 85,  "freedom": 47,  "safety": 80, "qol": 171, "internet": 247},
-    {"city": "Kuala Lumpur",  "country": "Malaysia",     "flag": "🇲🇾", "happiness": 5.9,  "cost": 38,  "freedom": 43,  "safety": 54, "qol": 160, "internet": 65},
-    {"city": "Bangkok",       "country": "Thailand",     "flag": "🇹🇭", "happiness": 5.9,  "cost": 40,  "freedom": 30,  "safety": 50, "qol": 148, "internet": 56},
-    {"city": "Dubai",         "country": "UAE",          "flag": "🇦🇪", "happiness": 6.7,  "cost": 69,  "freedom": 18,  "safety": 82, "qol": 162, "internet": 195},
-    {"city": "Buenos Aires",  "country": "Argentina",    "flag": "🇦🇷", "happiness": 5.8,  "cost": 35,  "freedom": 82,  "safety": 37, "qol": 133, "internet": 36},
-    {"city": "Medellín",      "country": "Colombia",     "flag": "🇨🇴", "happiness": 5.7,  "cost": 33,  "freedom": 65,  "safety": 42, "qol": 142, "internet": 30},
-    {"city": "Zurich",        "country": "Switzerland",  "flag": "🇨🇭", "happiness": 7.2,  "cost": 130, "freedom": 96,  "safety": 77, "qol": 187, "internet": 172},
+    {"city": "Vienna",        "country": "Austria",      "flag": "🇦🇹", "nature": 65, "connectivity": 95, "tech": 55, "hub": 65, "tz_diff": 6,  "safety": 79, "cost": 71},
+    {"city": "Copenhagen",    "country": "Denmark",      "flag": "🇩🇰", "nature": 55, "connectivity": 80, "tech": 60, "hub": 62, "tz_diff": 6,  "safety": 74, "cost": 89},
+    {"city": "Stockholm",     "country": "Sweden",       "flag": "🇸🇪", "nature": 85, "connectivity": 75, "tech": 78, "hub": 60, "tz_diff": 6,  "safety": 72, "cost": 75},
+    {"city": "Helsinki",      "country": "Finland",      "flag": "🇫🇮", "nature": 87, "connectivity": 60, "tech": 65, "hub": 55, "tz_diff": 5,  "safety": 78, "cost": 78},
+    {"city": "Amsterdam",     "country": "Netherlands",  "flag": "🇳🇱", "nature": 40, "connectivity": 92, "tech": 72, "hub": 85, "tz_diff": 6,  "safety": 61, "cost": 79},
+    {"city": "Berlin",        "country": "Germany",      "flag": "🇩🇪", "nature": 60, "connectivity": 88, "tech": 80, "hub": 72, "tz_diff": 6,  "safety": 63, "cost": 64},
+    {"city": "Lisbon",        "country": "Portugal",     "flag": "🇵🇹", "nature": 75, "connectivity": 68, "tech": 68, "hub": 58, "tz_diff": 7,  "safety": 64, "cost": 53},
+    {"city": "Barcelona",     "country": "Spain",        "flag": "🇪🇸", "nature": 80, "connectivity": 88, "tech": 68, "hub": 68, "tz_diff": 6,  "safety": 59, "cost": 58},
+    {"city": "London",        "country": "UK",           "flag": "🇬🇧", "nature": 45, "connectivity": 90, "tech": 88, "hub": 98, "tz_diff": 7,  "safety": 47, "cost": 91},
+    {"city": "Paris",         "country": "France",       "flag": "🇫🇷", "nature": 50, "connectivity": 93, "tech": 75, "hub": 95, "tz_diff": 6,  "safety": 48, "cost": 79},
+    {"city": "Toronto",       "country": "Canada",       "flag": "🇨🇦", "nature": 70, "connectivity": 70, "tech": 82, "hub": 80, "tz_diff": 12, "safety": 64, "cost": 72},
+    {"city": "Vancouver",     "country": "Canada",       "flag": "🇨🇦", "nature": 95, "connectivity": 62, "tech": 75, "hub": 60, "tz_diff": 15, "safety": 59, "cost": 76},
+    {"city": "New York",      "country": "USA",          "flag": "🇺🇸", "nature": 40, "connectivity": 75, "tech": 85, "hub": 100,"tz_diff": 12, "safety": 44, "cost": 100},
+    {"city": "Austin",        "country": "USA",          "flag": "🇺🇸", "nature": 70, "connectivity": 48, "tech": 80, "hub": 50, "tz_diff": 13, "safety": 52, "cost": 76},
+    {"city": "Seattle",       "country": "USA",          "flag": "🇺🇸", "nature": 90, "connectivity": 58, "tech": 88, "hub": 65, "tz_diff": 15, "safety": 45, "cost": 84},
+    {"city": "Sydney",        "country": "Australia",    "flag": "🇦🇺", "nature": 88, "connectivity": 55, "tech": 72, "hub": 75, "tz_diff": 3,  "safety": 68, "cost": 78},
+    {"city": "Melbourne",     "country": "Australia",    "flag": "🇦🇺", "nature": 75, "connectivity": 52, "tech": 65, "hub": 68, "tz_diff": 3,  "safety": 67, "cost": 74},
+    {"city": "Tokyo",         "country": "Japan",        "flag": "🇯🇵", "nature": 60, "connectivity": 80, "tech": 70, "hub": 90, "tz_diff": 2,  "safety": 83, "cost": 79},
+    {"city": "Seoul",         "country": "S. Korea",     "flag": "🇰🇷", "nature": 65, "connectivity": 82, "tech": 78, "hub": 82, "tz_diff": 2,  "safety": 70, "cost": 65},
+    {"city": "Singapore",     "country": "Singapore",    "flag": "🇸🇬", "nature": 55, "connectivity": 85, "tech": 85, "hub": 92, "tz_diff": 1,  "safety": 80, "cost": 85},
+    {"city": "Kuala Lumpur",  "country": "Malaysia",     "flag": "🇲🇾", "nature": 72, "connectivity": 82, "tech": 55, "hub": 72, "tz_diff": 1,  "safety": 54, "cost": 38},
+    {"city": "Bangkok",       "country": "Thailand",     "flag": "🇹🇭", "nature": 45, "connectivity": 78, "tech": 45, "hub": 75, "tz_diff": 0,  "safety": 50, "cost": 40},
+    {"city": "Dubai",         "country": "UAE",          "flag": "🇦🇪", "nature": 35, "connectivity": 80, "tech": 65, "hub": 92, "tz_diff": 3,  "safety": 82, "cost": 69},
+    {"city": "Buenos Aires",  "country": "Argentina",    "flag": "🇦🇷", "nature": 55, "connectivity": 45, "tech": 52, "hub": 58, "tz_diff": 10, "safety": 37, "cost": 35},
+    {"city": "Medellín",      "country": "Colombia",     "flag": "🇨🇴", "nature": 82, "connectivity": 48, "tech": 45, "hub": 40, "tz_diff": 12, "safety": 42, "cost": 33},
+    {"city": "Zurich",        "country": "Switzerland",  "flag": "🇨🇭", "nature": 92, "connectivity": 93, "tech": 72, "hub": 68, "tz_diff": 6,  "safety": 77, "cost": 130},
 ]
 
 # Each criterion: label for display, short description, and whether lower raw = better (invert).
 CRITERIA = {
-    "happiness": {"label": "Happiness",        "desc": "Well-being score · World Happiness Report 2023",  "invert": False},
-    "cost":      {"label": "Affordability",     "desc": "Cost of living (lower is better) · Numbeo 2024",  "invert": True},
-    "freedom":   {"label": "Political Freedom", "desc": "Civil liberties & rights · Freedom House 2024",   "invert": False},
-    "safety":    {"label": "Safety",            "desc": "Personal safety index · Numbeo 2024",             "invert": False},
-    "qol":       {"label": "Quality of Life",   "desc": "Liveability composite · Numbeo 2024",             "invert": False},
-    "internet":  {"label": "Internet Speed",    "desc": "Average broadband speed in Mbps",                 "invert": False},
+    "nature":       {"label": "Nature",           "desc": "Beaches, mountains, parks, green space nearby",        "invert": False},
+    "connectivity": {"label": "Short Trips",      "desc": "Great cities reachable in a weekend",                  "invert": False},
+    "tech":         {"label": "Tech Industry",    "desc": "Tech companies, startups & job market strength",       "invert": False},
+    "hub":          {"label": "Global Hub",       "desc": "Airport connectivity & international city status",     "invert": False},
+    "tz_diff":      {"label": "Indonesia TZ",     "desc": "Hours from Jakarta (WIB/UTC+7) — closer = better",    "invert": True},
+    "safety":       {"label": "Safety",           "desc": "Personal safety index · Numbeo 2024",                  "invert": False},
+    "cost":         {"label": "Affordability",    "desc": "Cost of living · Numbeo 2024 (lower = better)",        "invert": True},
 }
 
 
@@ -120,8 +122,8 @@ def show_banner():
     console.print(Panel(
         Text.assemble(
             ("🌍  Would You Rather Live Here?\n", "bold white"),
-            ("   A data-driven ranker for 26 cities across 6 criteria.\n", "dim"),
-            ("   Answer 6 questions. Get your personal city ranking.", "italic cyan"),
+            ("   A data-driven ranker for 26 cities across 7 criteria.\n", "dim"),
+            ("   Answer 7 questions. Get your personal city ranking.", "italic cyan"),
         ),
         border_style="cyan",
         padding=(1, 4),
@@ -141,7 +143,11 @@ def ask_weights() -> dict:
     weights = {}
     for key, meta in CRITERIA.items():
         console.print(f"  [bold]{meta['label']}[/bold]  [dim]{meta['desc']}[/dim]")
-        weights[key] = max(0, min(10, IntPrompt.ask("  Importance", default=5)))
+        try:
+            raw = input("  Importance 0–10 (press Enter for 5): ").strip()
+            weights[key] = max(0, min(10, int(raw) if raw else 5))
+        except ValueError:
+            weights[key] = 5
         console.print()
 
     return weights
@@ -213,7 +219,7 @@ def show_full_table(df: pd.DataFrame, weights: dict):
 
 def show_footer():
     console.print(
-        "[dim]Data: World Happiness Report 2023 · Numbeo 2024 · Freedom House 2024\n"
+        "[dim]Data: Numbeo 2024 · GFSI 2024 · tech/travel indices · timezone data\n"
         "Scores are relative — normalized within this city set.[/dim]"
     )
     console.print()
