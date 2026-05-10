@@ -84,9 +84,9 @@ def normalize(series: pd.Series, invert: bool = False) -> pd.Series:
     return (100 - scaled) if invert else scaled
 
 
-def build_scored_df(weights: dict) -> pd.DataFrame:
+def build_scored_df(weights: dict, cities: list = None) -> pd.DataFrame:
     """Load cities, attach normalized columns, compute weighted score, sort."""
-    df = pd.DataFrame(CITIES)
+    df = pd.DataFrame(cities if cities is not None else CITIES)
 
     for key, meta in CRITERIA.items():
         df[f"{key}_norm"] = normalize(df[key], meta["invert"])
